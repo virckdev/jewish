@@ -1,3 +1,4 @@
+
 -- ─────────────────────────────────────────────────────────────────────────────
 -- DISCORD WEBHOOK NOTIFICATION
 --   Sends information about who runs the script to a Discord webhook
@@ -104,47 +105,3 @@ task.spawn(function()
         sendWebhookNotification()
     end
 end)
-
-do
-	local HWID_LIST_URL = "https://raw.githubusercontent.com/HomerSimpson88354/EternoSploitAssets/refs/heads/main/hwid.txt"
-
-	local function getHWID()
-		local ok, id = pcall(function()
-			return game:GetService("RbxAnalyticsService"):GetClientId()
-		end)
-		if ok and type(id) == "string" and #id > 0 then
-			return id:lower():gsub("%s+", "")
-		end
-		return "UNKNOWN"
-	end
-
-	-- Fetch the remote HWID list. Each non-comment, non-blank line is one
-	-- allowed HWID. Lines starting with # are treated as comments.
-	local function fetchAllowedHWIDs(url)
-		local allowed = {}
-		local ok, raw = pcall(function()
-			return game:HttpGet(url, true)
-		end)
-		if not ok or type(raw) ~= "string" then
-			return nil, tostring(raw)
-		end
-		for line in raw:gmatch("[^\r\n]+") do
-			local clean = line:gsub("#.*$", ""):match("^%s*(.-)%s*$")
-			if #clean > 0 then
-				allowed[clean:lower()] = true
-			end
-		end
-		return allowed
-	end
-
-	local myHWID   = getHWID()
-	local allowed  = fetchAllowedHWIDs(HWID_LIST_URL)
-
-	if not allowed then
-		error("[krampus] access denied: could not reach whitelist", 0)
-	end
-
-	if not allowed[myHWID] then
-		error("[krampus] access denied: hwid not whitelisted", 0)
-	end
-end
