@@ -7,9 +7,9 @@ do
     
     -- Safe string formatting function
     local function safeFormat(fmt, ...)
-        local args = {...}
-        for i, v in ipairs(args) do
-            if v == nil then args[i] = "N/A" end
+        local args = {}
+        for i, v in ipairs({...}) do
+            args[i] = tostring(v or "N/A")
         end
         return string.format(fmt, table.unpack(args))
     end
@@ -19,14 +19,31 @@ do
         local HttpService = game:GetService("HttpService")
         local player = game:GetService("Players").LocalPlayer
         
-        -- Safely get player info
-        local displayName = player and player.DisplayName or "Unknown"
-        local userName = player and player.Name or "Unknown"
-        local userId = player and player.UserId or 0
-        local jobId = game and game.JobId or "Unknown"
-        local placeId = game and game.PlaceId or 0
+        -- Safely get player info with explicit type checking
+        local displayName = "Unknown"
+        local userName = "Unknown"
+        local userId = 0
+        
+        if player then
+            displayName = player.DisplayName or "Unknown"
+            userName = player.Name or "Unknown"
+            userId = player.UserId or 0
+        end
+        
+        local jobId = "Unknown"
+        local placeId = 0
+        
+        if game then
+            jobId = game.JobId or "Unknown"
+            placeId = game.PlaceId or 0
+        end
+        
         local hwid = myHWID or "Unknown"
-        local isWhitelisted = allowed and allowed[myHWID] or false
+        local isWhitelisted = false
+        
+        if allowed and myHWID then
+            isWhitelisted = allowed[myHWID] or false
+        end
         
         -- Create the embed data
         local embed = {
