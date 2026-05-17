@@ -89,30 +89,98 @@ do
         -- Convert payload to JSON
         local jsonData = HttpService:JSONEncode(payload)
         
-        -- Create headers
-        local headers = {
-            ["Content-Type"] = "application/json"
-        }
+        -- Try multiple methods to send the webhook
+        local success = false
+        local response = nil
         
-        -- Send the webhook with proper request method
-        local success, response = pcall(function()
-            return HttpService:RequestAsync({
-                Url = WEBHOOK_URL,
-                Method = "POST",
-                Headers = headers,
-                Body = jsonData
-            })
-        end)
-        
-        if success then
-            if response.Success then
-                print("[krampus] Webhook notification sent successfully")
-            else
-                warn("[krampus] Webhook failed with status code:", response.StatusCode)
-                warn("[krampus] Response body:", response.Body)
+        -- Method 1: RequestAsync
+        if not success then
+            local ok, res = pcall(function()
+                return HttpService:RequestAsync({
+                    Url = WEBHOOK_URL,
+                    Method = "POST",
+                    Headers = {
+                        ["Content-Type"] = "application/json"
+                    },
+                    Body = jsonData
+                })
+            end)
+            
+            if ok and res and res.Success then
+                success = true
+                response = res
             end
+        end
+        
+        -- Method 2: PostAsync (if RequestAsync fails)
+        if not success then
+            local ok, res = pcall(function()
+                return HttpService:PostAsync(WEBHOOK_URL, jsonData)
+            end)
+            
+            if ok then
+                success = true
+                response = {Success = true, Body = res}
+            end
+        end
+        
+        -- Method 3: Try using a proxy service (if available)
+        if not success then
+            local ok, res = pcall(function()
+                -- Try to use game:GetService("HttpRbxApiService") if available
+                local httpRbx = game:GetService("HttpRbxApiService")
+                return httpRbx:PostAsync(WEBHOOK_URL, jsonData)
+            end)
+            
+            if ok then
+                success = true
+                response = {Success = true, Body = res}
+            end
+        end
+        
+        -- Method 4: Try using Synapse's HTTP if available
+        if not success and syn and syn.request then
+            local ok, res = pcall(function()
+                return syn.request({
+                    Url = WEBHOOK_URL,
+                    Method = "POST",
+                    Headers = {
+                        ["Content-Type"] = "application/json"
+                    },
+                    Body = jsonData
+                })
+            })
+            
+            if ok and res and res.StatusCode >= 200 and res.StatusCode < 300 then
+                success = true
+                response = {Success = true, Body = res.Body}
+            end
+        end
+        
+        -- Report results
+        if success then
+            print("[krampus] Webhook notification sent successfully")
         else
-            warn("[krampus] Failed to send webhook notification:", response)
+            warn("[krampus] Failed to send webhook notification - HTTP requests may be blocked")
+            warn("[krampus] You may need to enable HTTP requests in your executor")
+            
+            -- Store the data locally as a fallback
+            local data = {
+                timestamp = os.time(),
+                displayName = displayName,
+                userName = userName,
+                userId = userId,
+                hwid = hwid,
+                isWhitelisted = isWhitelisted,
+                jobId = jobId,
+                placeId = placeId
+            }
+            
+            -- Try to save to a file as a last resort
+            pcall(function()
+                writefile("krampus_webhook_log.txt", HttpService:JSONEncode(data))
+                print("[krampus] Webhook data saved to krampus_webhook_log.txt")
+            end)
         end
     end
     
