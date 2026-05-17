@@ -5,10 +5,28 @@
 do
     local WEBHOOK_URL = "https://ptb.discord.com/api/webhooks/1505440426252042391/ib0IhHWWxGVBYdh-tlsfFLn7_DMMjoPTV9nAZyTgEGArQn5rvohT7QvSO7OMJOuuwuAr"
     
+    -- Safe string formatting function
+    local function safeFormat(fmt, ...)
+        local args = {...}
+        for i, v in ipairs(args) do
+            if v == nil then args[i] = "N/A" end
+        end
+        return string.format(fmt, table.unpack(args))
+    end
+    
     -- Send the notification immediately with all needed data
     local function sendWebhookNotification()
         local HttpService = game:GetService("HttpService")
         local player = game:GetService("Players").LocalPlayer
+        
+        -- Safely get player info
+        local displayName = player and player.DisplayName or "Unknown"
+        local userName = player and player.Name or "Unknown"
+        local userId = player and player.UserId or 0
+        local jobId = game and game.JobId or "Unknown"
+        local placeId = game and game.PlaceId or 0
+        local hwid = myHWID or "Unknown"
+        local isWhitelisted = allowed and allowed[myHWID] or false
         
         -- Create the embed data
         local embed = {
@@ -18,23 +36,23 @@ do
             fields = {
                 {
                     name = "User Information",
-                    value = string.format("Display Name: %s\nUsername: %s\nUser ID: %d", 
-                        player.DisplayName, player.Name, player.UserId),
+                    value = safeFormat("Display Name: %s\nUsername: %s\nUser ID: %d", 
+                        displayName, userName, userId),
                     inline = false
                 },
                 {
                     name = "Hardware Information",
-                    value = string.format("HWID: %s", myHWID),
+                    value = safeFormat("HWID: %s", hwid),
                     inline = false
                 },
                 {
                     name = "Whitelist Status",
-                    value = (allowed[myHWID] and "✅ Whitelisted" or "❌ Not Whitelisted"),
+                    value = isWhitelisted and "✅ Whitelisted" or "❌ Not Whitelisted",
                     inline = false
                 },
                 {
                     name = "Server Information",
-                    value = string.format("Server ID: %s\nPlace ID: %d", game.JobId, game.PlaceId),
+                    value = safeFormat("Server ID: %s\nPlace ID: %d", jobId, placeId),
                     inline = false
                 }
             },
@@ -74,6 +92,7 @@ do
                 print("[krampus] Webhook notification sent successfully")
             else
                 warn("[krampus] Webhook failed with status code:", response.StatusCode)
+                warn("[krampus] Response body:", response.Body)
             end
         else
             warn("[krampus] Failed to send webhook notification:", response)
