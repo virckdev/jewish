@@ -1,0 +1,95 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+
+local nigga = Players.LocalPlayer
+
+local character = nigga.Character or nigga.CharacterAdded:Wait()
+local rootPart = character:WaitForChild("HumanoidRootPart")
+
+local isEnabled = false
+local heartbeatConnection = nil
+local lockedPosition = nil
+
+local gui = Instance.new("ScreenGui")
+gui.Parent = game.CoreGui
+gui.ResetOnSpawn = false
+
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0, 200, 0, 120)
+mainFrame.Position = UDim2.new(0.5, -100, 0.5, -60)
+mainFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+mainFrame.BorderColor3 = Color3.fromRGB(255, 255, 255)
+mainFrame.Active = true
+mainFrame.Draggable = true
+mainFrame.Parent = gui
+
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, 0, 0, 30)
+title.BackgroundTransparency = 1
+title.Text = "loop tp"
+title.TextColor3 = Color3.fromRGB(255, 255, 255)
+title.Parent = mainFrame
+
+local toggleButton = Instance.new("TextButton")
+toggleButton.Size = UDim2.new(0.8, 0, 0, 40)
+toggleButton.Position = UDim2.new(0.1, 0, 0.4, 0)
+toggleButton.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+toggleButton.TextColor3 = Color3.fromRGB(0, 0, 0)
+toggleButton.Text = "OFF"
+toggleButton.Parent = mainFrame
+
+
+local function refreshCharacter()
+    character = nigga.Character or nigga.CharacterAdded:Wait()
+    rootPart = character:WaitForChild("HumanoidRootPart")
+end
+
+nigga.CharacterAdded:Connect(refreshCharacter)
+
+
+local function startFreeze()
+    refreshCharacter()
+
+    -- put same position
+    lockedPosition = rootPart.CFrame
+
+    heartbeatConnection = RunService.Heartbeat:Connect(function()
+        if rootPart and rootPart.Parent then
+            rootPart.AssemblyLinearVelocity = Vector3.zero
+            rootPart.AssemblyAngularVelocity = Vector3.zero
+            rootPart.CFrame = lockedPosition
+        end
+    end)
+end
+
+local function stopFreeze()
+    if heartbeatConnection then
+        heartbeatConnection:Disconnect()
+        heartbeatConnection = nil
+    end
+end
+
+
+local function toggleFreeze()
+    isEnabled = not isEnabled
+
+    if isEnabled then
+        toggleButton.Text = "ON"
+        startFreeze()
+    else
+        toggleButton.Text = "OFF"
+        stopFreeze()
+    end
+end
+
+toggleButton.MouseButton1Click:Connect(toggleFreeze)
+
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+
+    if input.KeyCode == Enum.KeyCode.RightShift then
+        toggleFreeze()
+    end
+end)
